@@ -102,51 +102,6 @@
             </div>
         </section>
 
-        {{-- Demo accounts --}}
-        @guest
-            <section class="max-w-6xl mx-auto px-6 pb-24">
-                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8">
-                    <h2 class="text-xl font-bold mb-1">Try every role</h2>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                        Seeded demo accounts &mdash; log in as any of them to see how access differs by role.
-                    </p>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm text-left">
-                            <thead>
-                                <tr class="text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wide">
-                                    <th class="py-2 pr-4">Role</th>
-                                    <th class="py-2 pr-4">Email</th>
-                                    <th class="py-2 pr-4">Password</th>
-                                    <th class="py-2">Can do</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                                <tr>
-                                    <td class="py-3 pr-4 font-semibold">Admin</td>
-                                    <td class="py-3 pr-4"><code>admin@example.com</code></td>
-                                    <td class="py-3 pr-4"><code>password</code></td>
-                                    <td class="py-3 text-slate-600 dark:text-slate-400">View, create, edit, delete, import</td>
-                                </tr>
-                                <tr>
-                                    <td class="py-3 pr-4 font-semibold">Manager</td>
-                                    <td class="py-3 pr-4"><code>manager@example.com</code></td>
-                                    <td class="py-3 pr-4"><code>password</code></td>
-                                    <td class="py-3 text-slate-600 dark:text-slate-400">View, create, edit, import &mdash; no delete</td>
-                                </tr>
-                                <tr>
-                                    <td class="py-3 pr-4 font-semibold">Viewer</td>
-                                    <td class="py-3 pr-4"><code>viewer@example.com</code></td>
-                                    <td class="py-3 pr-4"><code>password</code></td>
-                                    <td class="py-3 text-slate-600 dark:text-slate-400">View only</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-        @endguest
-
         <footer class="border-t border-slate-100 dark:border-slate-800 py-8">
             <div class="max-w-6xl mx-auto px-6 text-sm text-slate-500 dark:text-slate-400 flex items-center justify-between">
                 <span>&copy; {{ now()->year }} {{ config('app.name') }}</span>
