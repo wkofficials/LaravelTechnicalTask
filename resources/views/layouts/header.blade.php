@@ -1,104 +1,61 @@
-  <!--begin::Head-->
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>AdminLTE 4 | Starter Page</title>
+<head>
 
-    <!--begin::Theme Init (prevents flash of incorrect theme on load, #6043)-->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>@yield('title', 'Laravel Technical Task')</title>
+
+    <meta name="description" content="Laravel Technical Assessment">
+    <meta name="author" content="Waseem Khan">
+
+
+    {{-- AdminLTE Theme Initialization --}}
     <script>
-      (() => {
-        'use strict';
-        const root = document.documentElement;
+        (() => {
+            const html = document.documentElement;
+            const key = 'lte-theme';
 
-        // Applications with their own theming opt out of AdminLTE's color mode
-        // entirely, here as well as in the bundle.
-        if (root.getAttribute('data-lte-color-mode') === 'off') {
-          return;
-        }
+            let theme = 'light';
 
-        const STORAGE_KEY = 'lte-theme';
-        let stored = null;
-        try {
-          stored = localStorage.getItem(STORAGE_KEY);
-        } catch {
-          // localStorage may be unavailable (private mode, sandboxed iframe).
-        }
-        // Mirror the precedence in color-mode.ts: the visitor's stored choice
-        // wins, then a theme this page declared itself, then the OS preference.
-        const authored = root.getAttribute('data-bs-theme');
-        let resolved = 'light';
-        if (stored === 'dark' || stored === 'light') {
-          resolved = stored;
-        } else if (authored === 'dark' || authored === 'light') {
-          resolved = authored;
-        } else if (globalThis.matchMedia('(prefers-color-scheme: dark)').matches) {
-          resolved = 'dark';
-        }
-        root.setAttribute('data-bs-theme', resolved);
-        root.style.colorScheme = resolved;
-        // Flag values computed here, so the bundle does not mistake them for a
-        // theme the page declared and stop following the OS preference.
-        if (resolved !== authored) {
-          root.setAttribute('data-lte-theme-resolved', '');
-        }
-      })();
+            try {
+                theme = localStorage.getItem(key) ?? theme;
+            } catch (e) {}
+
+            if (!['light', 'dark'].includes(theme)) {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+                    ? 'dark'
+                    : 'light';
+            }
+
+            html.setAttribute('data-bs-theme', theme);
+            html.style.colorScheme = theme;
+
+        })();
     </script>
-    <!--end::Theme Init-->
 
-    <!--begin::Accessibility Meta Tags-->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-    <!--end::Accessibility Meta Tags-->
 
-    <!--begin::Primary Meta Tags-->
-    <meta name="title" content="AdminLTE 4 | Starter Page" />
-    <meta name="author" content="ColorlibHQ" />
-    <meta
-      name="description"
-      content="AdminLTE is a free Bootstrap 5 admin dashboard template with almost 50 example pages, built with vanilla JS and designed with accessibility in mind."
-    />
-    <meta
-      name="keywords"
-      content="bootstrap 5, bootstrap, bootstrap 5 admin dashboard, bootstrap 5 dashboard, bootstrap 5 charts, bootstrap 5 calendar, bootstrap 5 datepicker, bootstrap 5 tables, bootstrap 5 datatable, vanilla js datatable, colorlibhq, colorlibhq dashboard, colorlibhq admin dashboard, accessible admin panel"
-    />
-    <!--end::Primary Meta Tags-->
+    {{-- Google Font --}}
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
 
-    <!--begin::Accessibility Features-->
-    <!-- Skip links will be dynamically added by accessibility.js -->
-    <meta name="supported-color-schemes" content="light dark" />
-    <link rel="preload" href="./css/adminlte.css" as="style" />
-    <!--end::Accessibility Features-->
 
-    <!--begin::Fonts-->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
-      integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
-      crossorigin="anonymous"
-      media="print"
-      onload="this.media = 'all'"
-    />
-    <!--end::Fonts-->
+    {{-- OverlayScrollbars CSS --}}
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css">
 
-    <!--begin::Third Party Plugin(OverlayScrollbars)-->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
-      crossorigin="anonymous"
-    />
-    <!--end::Third Party Plugin(OverlayScrollbars)-->
 
-    <!--begin::Third Party Plugin(Bootstrap Icons)-->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-      crossorigin="anonymous"
-    />
-    <!--end::Third Party Plugin(Bootstrap Icons)-->
+    {{-- Bootstrap Icons --}}
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
-    <!--begin::Required Plugin(AdminLTE)-->
-    <link rel="stylesheet" href="./css/adminlte.css" />
-    <!--end::Required Plugin(AdminLTE)-->
-  </head>
-  <!--end::Head-->
+
+    {{-- AdminLTE CSS --}}
+    <link rel="stylesheet"
+          href="{{ asset('adminlte/css/adminlte.css') }}">
+
+
+    {{-- Custom Page CSS --}}
+    @stack('styles')
+
+</head>

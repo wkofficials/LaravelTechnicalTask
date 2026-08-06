@@ -1,27 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
-@include('layouts.header')
+<head>
+    @include('layouts.header')
+</head>
 
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 
-<div class="app-wrapper">
+    <div class="app-wrapper">
 
-    @include('layouts.navbar')
+        {{-- Navbar --}}
+        @include('layouts.navbar')
 
-    @include('layouts.sidebar')
+        {{-- Sidebar --}}
+        @include('layouts.sidebar')
 
-    <main class="app-main">
+        {{-- Main Content --}}
+        <main class="app-main">
+            {{-- Page Header --}}
+            <div class="app-content-header">
+                <div class="container-fluid">
+                    <div class="row align-items-center">
+                        <div class="col-sm-6">
+                            <h3 class="mb-0">@yield('page-title', 'Dashboard')</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        @yield('content')
+            {{-- Page Content --}}
+            <div class="app-content">
+                <div class="container-fluid">
+                    @yield('content')
+                </div>
+            </div>
+        </main>
 
-    </main>
+        {{-- Footer --}}
+        @include('layouts.footer')
 
-    @include('layouts.footer')
+    </div>
 
-</div>
-
-@include('layouts.scripts')
+    {{-- Scripts --}}
+    @include('layouts.scripts')
 
 </body>
+
 </html>
