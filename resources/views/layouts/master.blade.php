@@ -1,29 +1,27 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 
 @include('layouts.header')
 
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 
 <div class="app-wrapper">
 
-@include('layouts.navbar')
+    @include('layouts.navbar')
 
-@include('layouts.sidebar')
+    @include('layouts.sidebar')
 
-<main class="app-main">
+    <main class="app-main">
 
-@yield('content')
+        @yield('content')
 
-</main>
+    </main>
 
-@include('layouts.footer')
+    @include('layouts.footer')
 
 </div>
 
 @include('layouts.scripts')
 
 </body>
-
 </html>
