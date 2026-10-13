@@ -3,17 +3,9 @@
         <!--begin::Sidebar Brand-->
         <div class="sidebar-brand">
           <!--begin::Brand Link-->
-          <a href="{{ route('dashboard') }}" class="brand-link">
-            <!--begin::Brand Image-->
-            <img
-              src="{{ asset('adminlte/assets/img/AdminLTELogo.png') }}"
-              alt="{{ config('app.name') }} Logo"
-              class="brand-image opacity-75 shadow"
-            />
-            <!--end::Brand Image-->
-            <!--begin::Brand Text-->
-            <span class="brand-text fw-light">{{ config('app.name') }}</span>
-            <!--end::Brand Text-->
+          <a href="{{ auth()->user()->current_company_id ? route('dashboard') : (auth()->user()->is_super_admin ? route('platform.dashboard') : url('/')) }}" class="brand-link">
+            <span class="if-logo" aria-hidden="true"><i class="bi bi-boxes"></i></span>
+            <span class="brand-text">{{ config('app.name') }}</span>
           </a>
           <!--end::Brand Link-->
         </div>
@@ -28,12 +20,14 @@
               data-accordion="false"
               id="navigation"
             >
-              <li class="nav-item">
-                <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                  <i class="nav-icon bi bi-speedometer2"></i>
-                  <p>Dashboard</p>
-                </a>
-              </li>
+              @if (app(\App\Support\Tenancy\CurrentCompany::class)->has())
+                <li class="nav-item">
+                  <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-speedometer2"></i>
+                    <p>Dashboard</p>
+                  </a>
+                </li>
+              @endif
               <li class="nav-item">
                 <a href="{{ route('profile.edit') }}" class="nav-link {{ request()->routeIs('profile.edit') ? 'active' : '' }}">
                   <i class="nav-icon bi bi-person-gear"></i>
@@ -144,6 +138,27 @@
             </ul>
             <!--end::Sidebar Menu-->
           </nav>
+
+          {{-- Plan & monthly usage at a glance --}}
+          @php $sidebarCompany = app(\App\Support\Tenancy\CurrentCompany::class)->get(); @endphp
+          @if ($sidebarCompany && auth()->user()->can('view usage'))
+            @php
+              $sidebarLimits = \App\Support\PlanLimits::for($sidebarCompany);
+              $sidebarLimit = $sidebarLimits->plan()->monthly_import_rows;
+              $sidebarUsed = $sidebarLimits->importRowsUsed();
+              $sidebarPercent = $sidebarLimit > 0 ? min(100, (int) floor($sidebarUsed / $sidebarLimit * 100)) : 100;
+            @endphp
+            <a href="{{ route('usage') }}" class="if-sidebar-card d-block text-decoration-none">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-semibold text-white"><i class="bi bi-gem me-1 text-warning"></i> {{ $sidebarLimits->plan()->name }} plan</span>
+                <span class="small">{{ $sidebarPercent }}%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-label="Monthly import usage" aria-valuenow="{{ $sidebarPercent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar {{ $sidebarPercent >= 100 ? 'bg-danger' : ($sidebarPercent >= 80 ? 'bg-warning' : '') }}" style="width: {{ $sidebarPercent }}%"></div>
+              </div>
+              <div class="small mt-2 opacity-75">{{ number_format($sidebarUsed) }} / {{ number_format($sidebarLimit) }} rows this month</div>
+            </a>
+          @endif
         </div>
         <!--end::Sidebar Wrapper-->
       </aside>

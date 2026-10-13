@@ -31,10 +31,10 @@
             @endphp
             @if ($activeCompany)
               <li class="nav-item dropdown">
-                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"
+                <a href="#" class="nav-link dropdown-toggle if-company-pill me-1" data-bs-toggle="dropdown" aria-expanded="false"
                    aria-label="Current company: {{ $activeCompany->name }}">
-                  <i class="bi bi-building"></i>
-                  <span class="ms-1">{{ $activeCompany->name }}</span>
+                  <i class="bi bi-buildings-fill text-primary"></i>
+                  <span class="d-none d-sm-inline">{{ $activeCompany->name }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li><h6 class="dropdown-header">Current company</h6></li>
@@ -160,17 +160,25 @@
 
             <!--begin::User Menu Dropdown-->
             <li class="nav-item dropdown user-menu">
-              <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bi bi-person-circle fs-4"></i>
-                <span class="d-none d-md-inline ms-1">{{ auth()->user()->name }}</span>
+              @php
+                $initials = collect(preg_split('/\s+/', trim(auth()->user()->name)))
+                    ->filter()->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->implode('');
+                $navRole = $activeCompany ? $activeCompany->roleOf(auth()->user()) : null;
+              @endphp
+              <a href="#" class="nav-link dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="if-avatar" aria-hidden="true">{{ $initials ?: '?' }}</span>
+                <span class="d-none d-md-flex flex-column lh-sm text-start">
+                  <span class="fw-semibold text-body-emphasis">{{ auth()->user()->name }}</span>
+                  <small class="text-body-secondary">{{ auth()->user()->is_super_admin && ! $navRole ? 'Platform admin' : ucfirst($navRole ?? '') }}</small>
+                </span>
               </a>
               <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
                 <!--begin::User Header-->
-                <li class="user-header text-bg-primary">
-                  <i class="bi bi-person-circle" style="font-size: 3rem;"></i>
-                  <p>
-                    {{ auth()->user()->name }}
-                    <small>{{ auth()->user()->email }}</small>
+                <li class="user-header text-center text-white">
+                  <span class="if-avatar if-avatar-lg mb-2" aria-hidden="true">{{ $initials ?: '?' }}</span>
+                  <p class="mb-0">
+                    <span class="fw-bold d-block">{{ auth()->user()->name }}</span>
+                    <small class="opacity-75">{{ auth()->user()->email }}</small>
                   </p>
                 </li>
                 <!--end::User Header-->

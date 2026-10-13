@@ -4,9 +4,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Laravel Technical Task')</title>
+    <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
 
-    <meta name="description" content="Laravel Technical Assessment">
+    <meta name="description" content="{{ config('app.name') }} — spreadsheet imports for teams">
     <meta name="author" content="Waseem Khan">
 
 
@@ -35,9 +35,9 @@
     </script>
 
 
-    {{-- Google Font --}}
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
+    {{-- Font (same as the public and sign-in pages) --}}
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link rel="stylesheet" href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap">
 
 
     {{-- OverlayScrollbars CSS --}}
@@ -53,6 +53,10 @@
     {{-- AdminLTE CSS --}}
     <link rel="stylesheet"
           href="{{ asset('adminlte/css/adminlte.css') }}">
+
+    {{-- ImportFlow theme on top of AdminLTE (cache-busted by file time) --}}
+    <link rel="stylesheet"
+          href="{{ asset('css/admin-theme.css') }}?v={{ filemtime(public_path('css/admin-theme.css')) }}">
 
 
     {{-- Custom Page CSS --}}

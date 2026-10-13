@@ -47,6 +47,10 @@ class DashboardController extends Controller
         }
 
         $data['onboarding'] = $this->onboardingSteps($user, $currentCompany);
+        $data['company'] = $currentCompany->get();
+        $data['role'] = $currentCompany->get()->roleOf($user);
+        $data['teamCount'] = $currentCompany->get()->users()->count();
+        $data['localHour'] = (int) now($currentCompany->get()->timezone ?: 'UTC')->format('G');
 
         return view('dashboard.index', $data);
     }

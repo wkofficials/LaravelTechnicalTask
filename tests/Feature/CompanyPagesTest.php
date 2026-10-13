@@ -29,8 +29,8 @@ class CompanyPagesTest extends TestCase
             $response->assertOk();
 
             in_array($role, ['owner', 'manager'], true)
-                ? $response->assertSee('Imported rows this month')
-                : $response->assertDontSee('Imported rows this month');
+                ? $response->assertSee('Monthly usage')
+                : $response->assertDontSee('Monthly usage');
 
             $role === 'viewer'
                 ? $response->assertDontSee('Recent imports')
