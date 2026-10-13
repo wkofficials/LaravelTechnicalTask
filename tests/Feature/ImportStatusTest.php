@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\ImportBatchStatus;
 use App\Models\ImportBatch;
-use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -29,8 +28,7 @@ class ImportStatusTest extends TestCase
 
     public function test_users_without_import_permission_are_forbidden(): void
     {
-        $viewer = User::factory()->create();
-        $viewer->assignRole('viewer');
+        $viewer = $this->companyUser('viewer');
 
         $batch = ImportBatch::factory()->create(['user_id' => $viewer->id]);
 
@@ -39,8 +37,7 @@ class ImportStatusTest extends TestCase
 
     public function test_owner_can_view_their_own_batch_status(): void
     {
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $batch = ImportBatch::factory()->create([
             'user_id' => $manager->id,
@@ -64,40 +61,35 @@ class ImportStatusTest extends TestCase
         ]);
     }
 
-    public function test_a_different_user_cannot_view_someone_elses_batch_status(): void
+    public function test_an_operator_cannot_view_a_colleagues_batch_status(): void
     {
-        $owner = User::factory()->create();
-        $owner->assignRole('manager');
+        $uploader = $this->companyUser('operator');
 
-        $otherManager = User::factory()->create();
-        $otherManager->assignRole('manager');
+        $otherOperator = $this->companyUser('operator');
 
-        $batch = ImportBatch::factory()->create(['user_id' => $owner->id]);
+        $batch = ImportBatch::factory()->create(['user_id' => $uploader->id]);
 
-        $this->actingAs($otherManager)
+        $this->actingAs($otherOperator)
             ->getJson(route('imports.status', $batch))
             ->assertForbidden();
     }
 
-    public function test_admin_can_view_any_batch_status(): void
+    public function test_company_import_viewer_can_view_any_batch_in_their_company(): void
     {
-        $owner = User::factory()->create();
-        $owner->assignRole('manager');
+        $owner = $this->companyUser('manager');
 
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $companyOwner = $this->companyUser('owner');
 
         $batch = ImportBatch::factory()->create(['user_id' => $owner->id]);
 
-        $this->actingAs($admin)
+        $this->actingAs($companyOwner)
             ->getJson(route('imports.status', $batch))
             ->assertOk();
     }
 
     public function test_percentage_is_null_when_total_rows_is_unknown(): void
     {
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $batch = ImportBatch::factory()->create([
             'user_id' => $manager->id,
@@ -114,8 +106,7 @@ class ImportStatusTest extends TestCase
 
     public function test_completed_batch_reports_finished_true(): void
     {
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $batch = ImportBatch::factory()->completed()->create([
             'user_id' => $manager->id,

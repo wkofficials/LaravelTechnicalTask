@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Record extends Model
 {
     /** @use HasFactory<\Database\Factories\RecordFactory> */
-    use HasFactory;
+    use BelongsToCompany, HasFactory;
 
     protected $fillable = [
         'import_batch_id',

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\AnalyzeImport;
 use App\Jobs\ProcessExcelImport;
 use App\Models\ImportBatch;
-use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -30,16 +30,14 @@ class ImportUploadTest extends TestCase
 
     public function test_users_without_import_permission_are_forbidden(): void
     {
-        $viewer = User::factory()->create();
-        $viewer->assignRole('viewer');
+        $viewer = $this->companyUser('viewer');
 
         $this->actingAs($viewer)->get(route('imports.create'))->assertForbidden();
     }
 
     public function test_users_with_import_permission_can_view_the_upload_form(): void
     {
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $this->actingAs($manager)->get(route('imports.create'))->assertOk();
     }
@@ -49,8 +47,7 @@ class ImportUploadTest extends TestCase
         Storage::fake('local');
         Bus::fake();
 
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $file = UploadedFile::fake()->create(
             'contacts.xlsx',
@@ -59,55 +56,83 @@ class ImportUploadTest extends TestCase
         );
 
         $response = $this->actingAs($manager)
-            ->postJson(route('imports.store'), ['file' => $file]);
+            ->postJson(route('imports.store'), ['dataset' => 'contacts', 'file' => $file]);
 
         $response->assertOk();
-        $response->assertJsonPath('batch.status', 'pending');
+        $response->assertJsonPath('batch.status', 'analyzing');
 
         $this->assertDatabaseHas('import_batches', [
             'original_filename' => 'contacts.xlsx',
-            'status' => 'pending',
+            'dataset_key' => 'contacts',
+            'status' => 'analyzing',
             'user_id' => $manager->id,
         ]);
 
         $batch = ImportBatch::first();
         Storage::disk('local')->assertExists($batch->file_path);
 
-        Bus::assertDispatched(
-            ProcessExcelImport::class,
-            fn (ProcessExcelImport $job) => $job->importBatch->is($batch)
-        );
+        // Only analysis is queued; nothing is imported before confirmation.
+        Bus::assertDispatched(AnalyzeImport::class, fn (AnalyzeImport $job) => $job->importBatch->is($batch));
+        Bus::assertNotDispatched(ProcessExcelImport::class);
+    }
+
+    public function test_unknown_dataset_is_rejected(): void
+    {
+        $manager = $this->companyUser('manager');
+
+        $this->actingAs($manager)
+            ->postJson(route('imports.store'), ['dataset' => 'users', 'file' => UploadedFile::fake()->create('x.csv', 1)])
+            ->assertJsonValidationErrors('dataset');
     }
 
     public function test_viewer_cannot_upload_a_file(): void
     {
-        $viewer = User::factory()->create();
-
-        $viewer->assignRole('viewer');
+        $viewer = $this->companyUser('viewer');
 
         $file = UploadedFile::fake()->create('contacts.xlsx', 500);
 
         $this->actingAs($viewer)
-            ->postJson(route('imports.store'), ['file' => $file])
+            ->postJson(route('imports.store'), ['dataset' => 'contacts', 'file' => $file])
             ->assertForbidden();
+    }
+
+    public function test_semicolon_csv_detected_as_plain_text_is_accepted(): void
+    {
+        Bus::fake();
+        $manager = $this->companyUser('manager');
+
+        $file = UploadedFile::fake()->createWithContent('contacts.csv', "Naam;Email\nAli;ali@example.test\n");
+
+        $this->actingAs($manager)
+            ->postJson(route('imports.store'), ['dataset' => 'contacts', 'file' => $file])
+            ->assertOk();
+    }
+
+    public function test_text_content_with_a_non_spreadsheet_name_is_rejected(): void
+    {
+        $manager = $this->companyUser('manager');
+
+        $file = UploadedFile::fake()->createWithContent('notes.php', "<?php echo 'hi';\n");
+
+        $this->actingAs($manager)
+            ->postJson(route('imports.store'), ['dataset' => 'contacts', 'file' => $file])
+            ->assertJsonValidationErrors('file');
     }
 
     public function test_non_excel_file_is_rejected(): void
     {
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $file = UploadedFile::fake()->create('malware.exe', 500);
 
         $this->actingAs($manager)
-            ->postJson(route('imports.store'), ['file' => $file])
+            ->postJson(route('imports.store'), ['dataset' => 'contacts', 'file' => $file])
             ->assertJsonValidationErrors('file');
     }
 
     public function test_oversized_file_is_rejected(): void
     {
-        $manager = User::factory()->create();
-        $manager->assignRole('manager');
+        $manager = $this->companyUser('manager');
 
         $file = UploadedFile::fake()->create(
             'huge.xlsx',
@@ -116,7 +141,7 @@ class ImportUploadTest extends TestCase
         );
 
         $this->actingAs($manager)
-            ->postJson(route('imports.store'), ['file' => $file])
+            ->postJson(route('imports.store'), ['dataset' => 'contacts', 'file' => $file])
             ->assertJsonValidationErrors('file');
     }
 }

@@ -2,7 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Company;
 use App\Models\Record;
+use App\Support\Tenancy\CurrentCompany;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,6 +20,7 @@ class RecordFactory extends Factory
     public function definition(): array
     {
         return [
+            'company_id' => fn () => app(CurrentCompany::class)->id() ?? Company::factory(),
             'import_batch_id' => null,
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),

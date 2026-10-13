@@ -1,15 +1,15 @@
 @extends('layouts.master')
 
-@section('title', 'Edit Record')
-@section('page-title', 'Edit Record')
+@section('title', 'Edit '.$dataset->recordLabel())
+@section('page-title', 'Edit '.$dataset->recordLabel())
 
 @section('content')
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Edit Record</h3>
+            <h3 class="card-title">{{ $dataset->name() }}: edit {{ $dataset->recordLabel() }}</h3>
         </div>
         <div class="card-body">
-            <form action="{{ route('records.update', $record) }}" method="POST">
+            <form action="{{ route('records.update', [$dataset->key(), $record]) }}" method="POST">
                 @csrf
                 @method('PUT')
 
@@ -18,7 +18,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-lg"></i> Save
                 </button>
-                <a href="{{ route('records.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                <a href="{{ route('records.index', $dataset->key()) }}" class="btn btn-outline-secondary">Cancel</a>
             </form>
         </div>
     </div>

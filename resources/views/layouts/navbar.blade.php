@@ -20,6 +20,71 @@
 
           <!--begin::End Navbar Links-->
           <ul class="navbar-nav ms-auto align-items-center">
+            <!--begin::Company Switcher-->
+            @php
+              $activeCompany = app(\App\Support\Tenancy\CurrentCompany::class)->get();
+              $otherCompanies = auth()->user()->companies()
+                  ->where('status', \App\Models\Company::STATUS_ACTIVE)
+                  ->whereKeyNot($activeCompany?->id)
+                  ->orderBy('name')
+                  ->get();
+            @endphp
+            @if ($activeCompany)
+              <li class="nav-item dropdown">
+                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"
+                   aria-label="Current company: {{ $activeCompany->name }}">
+                  <i class="bi bi-building"></i>
+                  <span class="ms-1">{{ $activeCompany->name }}</span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><h6 class="dropdown-header">Current company</h6></li>
+                  <li><span class="dropdown-item-text fw-semibold">{{ $activeCompany->name }}</span></li>
+                  @if ($otherCompanies->isNotEmpty())
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">Switch to</h6></li>
+                    @foreach ($otherCompanies as $otherCompany)
+                      <li>
+                        <form method="POST" action="{{ route('companies.switch', $otherCompany) }}">
+                          @csrf
+                          <button type="submit" class="dropdown-item">{{ $otherCompany->name }}</button>
+                        </form>
+                      </li>
+                    @endforeach
+                  @endif
+                </ul>
+              </li>
+            @endif
+            <!--end::Company Switcher-->
+
+            <!--begin::Notifications-->
+            @php
+              $unreadCount = auth()->user()->unreadNotifications()->count();
+              $latestNotifications = auth()->user()->notifications()->limit(5)->get();
+            @endphp
+            <li class="nav-item dropdown">
+              <a class="nav-link" data-bs-toggle="dropdown" href="#" aria-expanded="false"
+                 aria-label="Notifications{{ $unreadCount ? ", {$unreadCount} unread" : '' }}">
+                <i class="bi bi-bell-fill"></i>
+                @if ($unreadCount)
+                  <span class="navbar-badge badge text-bg-danger">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                @endif
+              </a>
+              <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+                <span class="dropdown-item dropdown-header">
+                  {{ $unreadCount ? $unreadCount.' unread' : 'No unread notifications' }}
+                </span>
+                @foreach ($latestNotifications as $notification)
+                  <div class="dropdown-divider"></div>
+                  <a href="{{ route('notifications.open', $notification->id) }}" class="dropdown-item {{ $notification->read_at ? '' : 'fw-semibold' }}">
+                    <div class="text-truncate">{{ $notification->data['title'] ?? 'Notification' }}</div>
+                    <small class="text-secondary fw-normal">{{ $notification->created_at->diffForHumans() }}</small>
+                  </a>
+                @endforeach
+                <div class="dropdown-divider"></div>
+                <a href="{{ route('notifications.index') }}" class="dropdown-item dropdown-footer">See all notifications</a>
+              </div>
+            </li>
+            <!--end::Notifications-->
             <!--begin::Fullscreen Toggle-->
             <li class="nav-item">
               <a

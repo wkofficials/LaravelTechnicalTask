@@ -6,29 +6,40 @@
 @section('content')
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Upload Excel File</h3>
+            <h3 class="card-title">Upload a spreadsheet</h3>
         </div>
         <div class="card-body">
             <p class="text-secondary">
-                Upload an .xlsx, .xls, or .csv file (up to 100MB). The file will be queued and processed
-                in the background &mdash; you don't need to keep this page open.
+                Upload an .xlsx, .xls, or .csv file (up to {{ $maxFileSizeMb }}MB and {{ number_format($maxRowsPerImport) }} rows on your plan) whose first row contains column headings.
+                Next you'll match the file's columns to the dataset's fields and see a preview &mdash;
+                nothing is imported until you confirm.
             </p>
-
-            <p class="text-secondary">
-                The first row must be a header row with these column names (order doesn't matter,
-                <code>phone</code>, <code>company</code>, <code>city</code> and <code>country</code> are optional):
-                <code>name</code>, <code>email</code>, <code>phone</code>, <code>company</code>, <code>city</code>, <code>country</code>.
-            </p>
-
-            @if (session('status'))
-                <div class="alert alert-success">{{ session('status') }}</div>
-            @endif
 
             <form id="import-form" action="{{ route('imports.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
                 <div class="mb-3">
-                    <label for="import-file" class="form-label">Excel file</label>
+                    <label for="dataset" class="form-label">Import into</label>
+                    <select name="dataset" id="dataset" class="form-select" style="max-width: 24rem;" required>
+                        @foreach ($datasets as $dataset)
+                            <option value="{{ $dataset->key() }}" @selected(old('dataset') === $dataset->key())>{{ $dataset->name() }}</option>
+                        @endforeach
+                    </select>
+                    <div class="form-text" id="dataset-help">
+                        @foreach ($datasets as $dataset)
+                            <span data-dataset-help="{{ $dataset->key() }}">
+                                {{ $dataset->description() }}
+                                Fields: {{ collect($dataset->fields())->map(fn ($f) => $f->label.($f->required ? ' (required)' : ''))->implode(', ') }}.
+                            </span>
+                        @endforeach
+                    </div>
+                    @error('dataset')
+                        <div class="text-danger mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="import-file" class="form-label">File</label>
                     <input
                         type="file"
                         name="file"
@@ -43,7 +54,8 @@
                 </div>
 
                 <div id="import-progress-wrap" class="mb-3 d-none">
-                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                    <label class="form-label small text-secondary mb-1">Upload progress</label>
+                    <div class="progress" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100">
                         <div
                             id="import-progress-bar"
                             class="progress-bar progress-bar-striped progress-bar-animated"
@@ -58,31 +70,6 @@
                     <i class="bi bi-upload"></i> Upload
                 </button>
             </form>
-
-            <div id="processing-section" class="mt-4 d-none">
-                <hr>
-                <h5>Processing status</h5>
-                <p id="processing-filename" class="text-secondary mb-2"></p>
-
-                <div class="mb-2">
-                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-                        <div
-                            id="processing-progress-bar"
-                            class="progress-bar progress-bar-striped progress-bar-animated"
-                            style="width: 0%"
-                        >0%</div>
-                    </div>
-                </div>
-
-                <p id="processing-counts" class="text-secondary mb-2"></p>
-
-                <div id="processing-result" class="alert d-none" role="alert"></div>
-
-                <div id="processing-errors" class="d-none">
-                    <p class="mb-1"><strong>Some rows couldn't be imported:</strong></p>
-                    <ul id="processing-errors-list" class="small text-danger"></ul>
-                </div>
-            </div>
         </div>
     </div>
 @endsection
@@ -92,23 +79,20 @@
     document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('import-form');
         const fileInput = document.getElementById('import-file');
+        const datasetSelect = document.getElementById('dataset');
         const submitBtn = document.getElementById('import-submit');
         const progressWrap = document.getElementById('import-progress-wrap');
         const progressBar = document.getElementById('import-progress-bar');
         const resultBox = document.getElementById('import-result');
-        const maxBytes = 100 * 1024 * 1024;
+        const maxBytes = {{ $maxFileSizeMb }} * 1024 * 1024;
 
-        const processingSection = document.getElementById('processing-section');
-        const processingFilename = document.getElementById('processing-filename');
-        const processingBar = document.getElementById('processing-progress-bar');
-        const processingCounts = document.getElementById('processing-counts');
-        const processingResult = document.getElementById('processing-result');
-        const processingErrorsWrap = document.getElementById('processing-errors');
-        const processingErrorsList = document.getElementById('processing-errors-list');
-
-        const statusUrlTemplate = '{{ route('imports.status', ['importBatch' => '__ID__']) }}';
-        let pollTimer = null;
-        let pollFailures = 0;
+        function showDatasetHelp() {
+            document.querySelectorAll('[data-dataset-help]').forEach(function (el) {
+                el.classList.toggle('d-none', el.dataset.datasetHelp !== datasetSelect.value);
+            });
+        }
+        datasetSelect.addEventListener('change', showDatasetHelp);
+        showDatasetHelp();
 
         function showResult(message, isError) {
             resultBox.textContent = message;
@@ -118,10 +102,12 @@
 
         function setProgress(percent) {
             progressBar.style.width = percent + '%';
-            progressBar.setAttribute('aria-valuenow', percent);
+            progressBar.parentElement.setAttribute('aria-valuenow', percent);
             progressBar.textContent = percent + '%';
         }
 
+        // Upload with XHR to show real upload progress (bytes sent), then go to
+        // the import's page, where analysis, mapping and processing are tracked.
         form.addEventListener('submit', function (event) {
             event.preventDefault();
 
@@ -130,16 +116,15 @@
             }
 
             if (fileInput.files[0].size > maxBytes) {
-                showResult('That file is larger than the 100MB limit.', true);
+                showResult('That file is larger than the {{ $maxFileSizeMb }}MB limit of your plan.', true);
                 return;
             }
 
-            const formData = new FormData(form);
             const xhr = new XMLHttpRequest();
 
             resultBox.classList.add('d-none');
             progressWrap.classList.remove('d-none');
-            progressBar.classList.remove('bg-danger', 'text-bg-danger');
+            progressBar.classList.remove('bg-danger');
             setProgress(0);
             submitBtn.disabled = true;
 
@@ -152,15 +137,12 @@
             );
 
             xhr.upload.addEventListener('progress', function (event) {
-                if (!event.lengthComputable) {
-                    return;
+                if (event.lengthComputable) {
+                    setProgress(Math.round((event.loaded / event.total) * 100));
                 }
-                setProgress(Math.round((event.loaded / event.total) * 100));
             });
 
             xhr.addEventListener('load', function () {
-                submitBtn.disabled = false;
-
                 let response = {};
                 try {
                     response = JSON.parse(xhr.responseText);
@@ -168,20 +150,19 @@
                     response = {};
                 }
 
-                if (xhr.status >= 200 && xhr.status < 300) {
+                if (xhr.status >= 200 && xhr.status < 300 && response.batch) {
                     setProgress(100);
                     showResult(response.message || 'Upload complete.', false);
-                    form.reset();
+                    window.location.href = response.batch.details_url;
+                    return;
+                }
 
-                    if (response.batch && response.batch.id) {
-                        startTracking(response.batch.id);
-                    }
-                } else if (xhr.status === 422 && response.errors) {
-                    const messages = Object.values(response.errors).flat().join(' ');
-                    progressBar.classList.add('bg-danger');
-                    showResult(messages || 'Please choose a valid file.', true);
+                submitBtn.disabled = false;
+                progressBar.classList.add('bg-danger');
+
+                if (xhr.status === 422 && response.errors) {
+                    showResult(Object.values(response.errors).flat().join(' ') || 'Please choose a valid file.', true);
                 } else {
-                    progressBar.classList.add('bg-danger');
                     showResult(response.message || 'Upload failed. Please try again.', true);
                 }
             });
@@ -192,121 +173,8 @@
                 showResult('Upload failed. Please check your connection and try again.', true);
             });
 
-            xhr.send(formData);
+            xhr.send(new FormData(form));
         });
-
-        function statusUrl(id) {
-            return statusUrlTemplate.replace('__ID__', encodeURIComponent(id));
-        }
-
-        function setProcessingProgress(percent) {
-            const value = percent === null || percent === undefined ? 0 : percent;
-            processingBar.style.width = value + '%';
-            processingBar.setAttribute('aria-valuenow', value);
-            processingBar.textContent = (percent === null || percent === undefined) ? 'Working…' : value + '%';
-        }
-
-        function stopPolling() {
-            if (pollTimer) {
-                clearTimeout(pollTimer);
-                pollTimer = null;
-            }
-        }
-
-        function renderStatus(data) {
-            processingFilename.textContent = data.original_filename;
-            setProcessingProgress(data.percentage);
-
-            const total = data.total_rows === null ? '?' : data.total_rows;
-            processingCounts.textContent = data.processed_rows + ' / ' + total + ' rows processed'
-                + (data.failed_rows ? ' — ' + data.failed_rows + ' failed' : '');
-
-            if (!data.is_finished) {
-                return;
-            }
-
-            stopPolling();
-            processingBar.classList.remove('progress-bar-animated');
-            processingResult.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger');
-            processingBar.classList.remove('bg-warning', 'bg-danger');
-
-            if (data.status === 'completed') {
-                processingResult.classList.add('alert-success');
-                processingResult.textContent = 'Import complete: ' + data.processed_rows + ' rows processed successfully.';
-            } else if (data.status === 'completed_with_errors') {
-                processingBar.classList.add('bg-warning');
-                processingResult.classList.add('alert-warning');
-                processingResult.textContent = 'Import finished with ' + data.failed_rows + ' row(s) skipped. See details below.';
-            } else {
-                processingBar.classList.add('bg-danger');
-                processingResult.classList.add('alert-danger');
-                processingResult.textContent = data.error_message || 'Import failed.';
-            }
-
-            if (data.row_errors && data.row_errors.length) {
-                processingErrorsWrap.classList.remove('d-none');
-                processingErrorsList.innerHTML = '';
-                data.row_errors.slice(0, 20).forEach(function (err) {
-                    const li = document.createElement('li');
-                    li.textContent = 'Row ' + err.row + ': ' + err.error;
-                    processingErrorsList.appendChild(li);
-                });
-            }
-        }
-
-        function poll(batchId) {
-            fetch(statusUrl(batchId), {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            })
-                .then(function (response) {
-                    if (!response.ok) {
-                        throw new Error('status ' + response.status);
-                    }
-                    pollFailures = 0;
-                    return response.json();
-                })
-                .then(function (data) {
-                    renderStatus(data);
-                    if (!data.is_finished) {
-                        pollTimer = setTimeout(function () { poll(batchId); }, 1500);
-                    }
-                })
-                .catch(function () {
-                    pollFailures++;
-                    if (pollFailures < 5) {
-                        pollTimer = setTimeout(function () { poll(batchId); }, 3000);
-                    } else {
-                        processingResult.classList.remove('d-none');
-                        processingResult.classList.add('alert-danger');
-                        processingResult.textContent = 'Lost connection while checking import status. Reload the page to check again.';
-                    }
-                });
-        }
-
-        function startTracking(batchId) {
-            processingSection.classList.remove('d-none');
-            processingResult.classList.add('d-none');
-            processingErrorsWrap.classList.add('d-none');
-            processingBar.classList.remove('bg-warning', 'bg-danger');
-            processingBar.classList.add('progress-bar-animated');
-            setProcessingProgress(0);
-
-            const url = new URL(window.location.href);
-            url.searchParams.set('batch', batchId);
-            window.history.replaceState({}, '', url);
-
-            pollFailures = 0;
-            stopPolling();
-            poll(batchId);
-        }
-
-        const existingBatchId = new URLSearchParams(window.location.search).get('batch');
-        if (existingBatchId) {
-            startTracking(existingBatchId);
-        }
     });
 </script>
 @endpush

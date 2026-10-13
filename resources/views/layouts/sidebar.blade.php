@@ -41,21 +41,106 @@
                 </a>
               </li>
               @can('view records')
-                <li class="nav-item">
-                  <a href="{{ route('records.index') }}" class="nav-link {{ request()->routeIs('records.*') ? 'active' : '' }}">
-                    <i class="nav-icon bi bi-table"></i>
-                    <p>Records</p>
-                  </a>
-                </li>
+                @foreach (app(\App\Datasets\DatasetRegistry::class)->all() as $sidebarDataset)
+                  <li class="nav-item">
+                    <a href="{{ route('records.index', $sidebarDataset->key()) }}"
+                       class="nav-link {{ request()->routeIs('records.*') && request()->route('dataset')?->key() === $sidebarDataset->key() ? 'active' : '' }}">
+                      <i class="nav-icon bi bi-table"></i>
+                      <p>{{ $sidebarDataset->name() }}</p>
+                    </a>
+                  </li>
+                @endforeach
               @endcan
               @can('import records')
                 <li class="nav-item">
-                  <a href="{{ route('imports.create') }}" class="nav-link {{ request()->routeIs('imports.*') ? 'active' : '' }}">
+                  <a href="{{ route('imports.create') }}" class="nav-link {{ request()->routeIs('imports.create') ? 'active' : '' }}">
                     <i class="nav-icon bi bi-file-earmark-spreadsheet"></i>
                     <p>Import Records</p>
                   </a>
                 </li>
+                <li class="nav-item">
+                  <a href="{{ route('imports.index') }}" class="nav-link {{ request()->routeIs('imports.index', 'imports.show') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-clock-history"></i>
+                    <p>Import History</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ route('templates.index') }}" class="nav-link {{ request()->routeIs('templates.*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-diagram-3"></i>
+                    <p>Import Templates</p>
+                  </a>
+                </li>
               @endcan
+              @canany(['manage team', 'view usage', 'view audit log', 'manage billing', 'manage company'])
+                <li class="nav-header">COMPANY</li>
+              @endcanany
+              @can('manage team')
+                <li class="nav-item">
+                  <a href="{{ route('team.index') }}" class="nav-link {{ request()->routeIs('team.*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-people"></i>
+                    <p>Team</p>
+                  </a>
+                </li>
+              @endcan
+              @can('view usage')
+                <li class="nav-item">
+                  <a href="{{ route('usage') }}" class="nav-link {{ request()->routeIs('usage') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-speedometer"></i>
+                    <p>Usage &amp; Plan</p>
+                  </a>
+                </li>
+              @endcan
+              @can('view audit log')
+                <li class="nav-item">
+                  <a href="{{ route('audit.index') }}" class="nav-link {{ request()->routeIs('audit.*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-journal-text"></i>
+                    <p>Audit Log</p>
+                  </a>
+                </li>
+              @endcan
+              @can('manage billing')
+                <li class="nav-item">
+                  <a href="{{ route('billing.index') }}" class="nav-link {{ request()->routeIs('billing.*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-credit-card"></i>
+                    <p>Billing</p>
+                  </a>
+                </li>
+              @endcan
+              @can('manage company')
+                <li class="nav-item">
+                  <a href="{{ route('company.settings') }}" class="nav-link {{ request()->routeIs('company.settings*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-gear"></i>
+                    <p>Company Settings</p>
+                  </a>
+                </li>
+              @endcan
+              @if (auth()->user()->is_super_admin)
+                <li class="nav-header">PLATFORM</li>
+                <li class="nav-item">
+                  <a href="{{ route('platform.dashboard') }}" class="nav-link {{ request()->routeIs('platform.dashboard') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-hdd-network"></i>
+                    <p>Overview</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ route('platform.companies.index') }}" class="nav-link {{ request()->routeIs('platform.companies.*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-buildings"></i>
+                    <p>Companies</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ route('platform.billing') }}" class="nav-link {{ request()->routeIs('platform.billing', 'platform.invoices.*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-receipt"></i>
+                    <p>Billing</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ route('platform.plans') }}" class="nav-link {{ request()->routeIs('platform.plans*') ? 'active' : '' }}">
+                    <i class="nav-icon bi bi-sliders"></i>
+                    <p>Plans</p>
+                  </a>
+                </li>
+              @endif
             </ul>
             <!--end::Sidebar Menu-->
           </nav>

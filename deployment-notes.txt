@@ -25,16 +25,38 @@ REQUIREMENTS
      APP_URL=https://your-domain.com
      DB_CONNECTION=mysql
      DB_HOST / DB_DATABASE / DB_USERNAME / DB_PASSWORD = your real values
+     LOG_LEVEL=warning
      QUEUE_CONNECTION=database
-     DB_QUEUE_RETRY_AFTER=3900   (keep this high - see note below)
+     DB_QUEUE_RETRY_AFTER=3900   (must stay above the 3600s import timeout)
+     MAIL_MAILER / MAIL_HOST / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD /
+     MAIL_FROM_ADDRESS = a real mail service. REQUIRED: users must verify
+     their email before they can use a company workspace or accept an
+     invitation, and invitations are sent by email.
+     Optional tuning (defaults shown):
+       IMPORT_CHUNK_SIZE=1000          rows per chunk (see docs/qa-report.md)
+       IMPORT_FILE_RETENTION_DAYS=30   original uploads kept after an import ends
+       IMPORT_ABANDON_AFTER_DAYS=7     unconfirmed imports cancelled after this
 
 4. DATABASE
    php artisan migrate --force
    php artisan db:seed --force
-     -> creates the 3 roles/permissions (admin, manager, viewer)
-     -> creates 3 demo users (admin@example.com / manager@example.com /
-        viewer@example.com, all password: "password")
+     (after later deploys run only:
+        php artisan db:seed --class=RolesAndPermissionsSeeder --force
+      it adds new roles/permissions; the full db:seed would re-create the
+      demo accounts)
+     -> creates the 4 company roles (owner, manager, operator, viewer)
+     -> creates 2 demo companies:
+          "Demo Company": admin@example.com (owner), manager@example.com,
+                          operator@example.com, viewer@example.com
+          "Other Company": other@example.com (owner)
+          Platform admin (no company): platform@example.com
+        all password: "password". Log in as both owners to see that the
+        companies can never see each other's data.
      -> change or remove these demo accounts before going live
+
+   Create your own platform (super) admin - only possible from the CLI:
+     php artisan platform:admin you@your-domain.com
+   Remove or demote the demo platform@example.com account before going live.
 
 5. STORAGE
    php artisan storage:link
@@ -52,24 +74,65 @@ REQUIREMENTS
    Excel imports only work if a queue worker is actually running. Nothing
    processes uploaded files otherwise - they just sit as "pending" forever.
 
-   Run under a process supervisor (systemd or Supervisor), not just in a
-   terminal, so it restarts automatically:
+   Run under a process supervisor, not just in a terminal, so it restarts
+   automatically. A ready config with explained settings is in
+   deploy/supervisor/importflow-worker.conf (2 workers, timeout 3600s,
+   recycled hourly / at 512 MB).
 
-     php artisan queue:work --tries=1 --timeout=3600
+   Do NOT pass --tries to the worker: each job sets its own retries
+   (imports retry up to 3 times; retries are safe - committed chunks are
+   skipped, never duplicated).
 
-   Example Supervisor config (recommended):
-     [program:laravel-queue-worker]
-     command=php /path/to/app/artisan queue:work --tries=1 --timeout=3600
-     autostart=true
-     autorestart=true
-     user=www-data
-     numprocs=1
-
-   Restart the worker after every deploy (it caches loaded code in memory):
+   Restart the workers after every deploy (they keep old code in memory):
      php artisan queue:restart
 
-9. SCHEDULER (only if/when cron jobs are added later)
+   Failed jobs: php artisan queue:failed lists them; the import itself is
+   already marked Failed with a support reference (import #id). Failed-job
+   records are pruned after 7 days by the scheduler.
+
+9. SCHEDULER - REQUIRED
    * * * * * cd /path/to/app && php artisan schedule:run >> /dev/null 2>&1
+   It runs:
+     exports:prune     hourly   deletes export files after 24 hours
+     imports:prune     daily    deletes original uploads after
+                                IMPORT_FILE_RETENTION_DAYS, cancels imports
+                                never confirmed within IMPORT_ABANDON_AFTER_DAYS
+     queue:prune-failed daily   removes failed-job records older than 7 days
+     billing:run       daily    ends trials, issues renewal invoices, marks
+                                unpaid periods past due, moves companies to the
+                                free plan after the grace period
+   Without it, files containing customer data pile up on disk.
+
+10. BACKUPS - REQUIRED BEFORE TAKING REAL CUSTOMER DATA
+   deploy/backup/backup.sh       nightly mysqldump (consistent snapshot, no
+                                 locking) + private uploads, 14 days kept
+   deploy/backup/restore-test.sh restores the latest dump into a throw-away
+                                 database and checks the tables
+   Copy backups off the server, and run the restore test at least monthly.
+   (These scripts are syntax-checked only; they were not run against a
+   production server - do one supervised run when you set them up.)
+
+11. BILLING (manual invoicing) AND LEGAL PAGES
+   How it works: a company owner requests a plan on the Billing page ->
+   platform admins are notified -> a platform admin issues an invoice
+   (Platform > Companies > company > Billing) -> the owner pays by bank
+   transfer -> the admin clicks "Mark paid" -> the plan is active for the
+   period. Renewal invoices are issued automatically before each period ends.
+   Unpaid: "past due" for BILLING_GRACE_DAYS, then the free plan (data kept).
+
+   Set before launch:
+     Platform > Plans: monthly/yearly price, currency, "show on pricing page"
+     .env:
+       BILLING_SELLER_NAME / BILLING_SELLER_ADDRESS / BILLING_SELLER_EMAIL
+       BILLING_PAYMENT_INSTRUCTIONS   (bank details, shown on invoices)
+       BILLING_TRIAL_DAYS=14  BILLING_INVOICE_DUE_DAYS=14
+       BILLING_RENEWAL_NOTICE_DAYS=7  BILLING_GRACE_DAYS=7
+   Invoices are printable pages ("Print / Save as PDF"); no card data is stored.
+
+   Terms of Service and Privacy Policy show a "Placeholder" notice until you
+   add your legal text as:
+     resources/views/legal/terms.blade.php
+     resources/views/legal/privacy.blade.php
 
 NOTES
 - Uploaded import files are stored under storage/app/private/imports and are

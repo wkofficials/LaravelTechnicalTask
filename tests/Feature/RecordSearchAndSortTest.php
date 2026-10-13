@@ -17,14 +17,16 @@ class RecordSearchAndSortTest extends TestCase
         parent::setUp();
 
         $this->seed(RolesAndPermissionsSeeder::class);
+
+        // Created up front so records made by each test land in this user's company.
+        $this->viewer = $this->companyUser('viewer');
     }
+
+    private User $viewer;
 
     private function actingUser(): User
     {
-        $user = User::factory()->create();
-        $user->assignRole('viewer');
-
-        return $user;
+        return $this->viewer;
     }
 
     public function test_search_matches_by_name(): void
@@ -32,7 +34,7 @@ class RecordSearchAndSortTest extends TestCase
         Record::factory()->create(['name' => 'Jane Doe', 'email' => 'jane@example.test']);
         Record::factory()->create(['name' => 'John Smith', 'email' => 'john@example.test']);
 
-        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['q' => 'Jane']));
+        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['dataset' => 'contacts', 'q' => 'Jane']));
 
         $response->assertOk();
         $response->assertSee('Jane Doe');
@@ -44,7 +46,7 @@ class RecordSearchAndSortTest extends TestCase
         Record::factory()->create(['name' => 'Alice Adams', 'company' => 'Acmeworks']);
         Record::factory()->create(['name' => 'Bob Baker', 'company' => 'Globex']);
 
-        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['q' => 'Acmeworks']));
+        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['dataset' => 'contacts', 'q' => 'Acmeworks']));
 
         $response->assertOk();
         $response->assertSee('Alice Adams');
@@ -55,7 +57,7 @@ class RecordSearchAndSortTest extends TestCase
     {
         Record::factory()->create(['name' => 'Jane Doe']);
 
-        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['q' => 'Zzznomatch']));
+        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['dataset' => 'contacts', 'q' => 'Zzznomatch']));
 
         $response->assertOk();
         $response->assertSee('No records found.');
@@ -65,7 +67,7 @@ class RecordSearchAndSortTest extends TestCase
     {
         Record::factory()->create(['name' => 'Jane Doe']);
 
-        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['q' => '+"*()<>~']));
+        $response = $this->actingAs($this->actingUser())->get(route('records.index', ['dataset' => 'contacts', 'q' => '+"*()<>~']));
 
         $response->assertOk();
     }
@@ -77,13 +79,13 @@ class RecordSearchAndSortTest extends TestCase
         Record::factory()->create(['name' => 'Bob']);
 
         $asc = $this->actingAs($this->actingUser())
-            ->get(route('records.index', ['sort' => 'name', 'direction' => 'asc']));
+            ->get(route('records.index', ['dataset' => 'contacts', 'sort' => 'name', 'direction' => 'asc']));
         $asc->assertOk();
         $names = $asc->viewData('records')->pluck('name')->all();
         $this->assertSame(['Alice', 'Bob', 'Charlie'], $names);
 
         $desc = $this->actingAs($this->actingUser())
-            ->get(route('records.index', ['sort' => 'name', 'direction' => 'desc']));
+            ->get(route('records.index', ['dataset' => 'contacts', 'sort' => 'name', 'direction' => 'desc']));
         $names = $desc->viewData('records')->pluck('name')->all();
         $this->assertSame(['Charlie', 'Bob', 'Alice'], $names);
     }
@@ -93,7 +95,7 @@ class RecordSearchAndSortTest extends TestCase
         Record::factory()->count(3)->create();
 
         $response = $this->actingAs($this->actingUser())
-            ->get(route('records.index', ['sort' => 'password']));
+            ->get(route('records.index', ['dataset' => 'contacts', 'sort' => 'password']));
 
         $response->assertOk();
     }
@@ -103,7 +105,7 @@ class RecordSearchAndSortTest extends TestCase
         Record::factory()->count(30)->create(['company' => 'Searchable Co']);
 
         $response = $this->actingAs($this->actingUser())
-            ->get(route('records.index', ['q' => 'Searchable', 'sort' => 'name', 'direction' => 'asc']));
+            ->get(route('records.index', ['dataset' => 'contacts', 'q' => 'Searchable', 'sort' => 'name', 'direction' => 'asc']));
 
         $response->assertOk();
         $response->assertSee('sort=name', false);

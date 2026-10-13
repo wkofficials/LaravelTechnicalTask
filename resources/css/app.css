@@ -1,3 +1,42 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+[x-cloak] { display: none !important; }
+
+/* Auth screens: soft floating colour blobs and an animated progress bar. */
+@layer utilities {
+    @keyframes blob-float {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(30px, -40px) scale(1.08); }
+        66% { transform: translate(-25px, 20px) scale(0.95); }
+    }
+
+    @keyframes progress-fill {
+        0% { width: 8%; }
+        70% { width: 100%; }
+        100% { width: 100%; }
+    }
+
+    @keyframes fade-up {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-blob { animation: blob-float 14s ease-in-out infinite; }
+    .animate-blob-slow { animation: blob-float 20s ease-in-out infinite reverse; }
+    .animate-progress { animation: progress-fill 6s ease-in-out infinite; }
+    .animate-fade-up { animation: fade-up .6s ease-out both; }
+
+    .bg-grid {
+        background-image:
+            linear-gradient(to right, rgb(255 255 255 / .07) 1px, transparent 1px),
+            linear-gradient(to bottom, rgb(255 255 255 / .07) 1px, transparent 1px);
+        background-size: 40px 40px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .animate-blob, .animate-blob-slow, .animate-progress, .animate-fade-up { animation: none; }
+        .animate-progress { width: 72%; }
+    }
+}
